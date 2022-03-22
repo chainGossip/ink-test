@@ -30,6 +30,7 @@ mod Pooling {
                 token: erc20,
             }
         }
+        // staking operation
         #[ink(message)]
         pub fn stake(&mut self, amount: Balance) {
             let staker = self.env().caller();
@@ -53,8 +54,8 @@ mod Pooling {
                     }],
                 );
             }
-            self.token.approve_from_to(caller, self.env().account_id(), amount);
-            self.token.transfer_from(caller, self.env().account_id(), amount);
+            self.token.approve_from_to(staker, self.env().account_id(), amount);
+            self.token.transfer_from(staker, self.env().account_id(), amount);
         }
 
         #[ink(message)]
@@ -67,6 +68,7 @@ mod Pooling {
                 let locked_time: Balance = self.locked.get(&staker).unwrap()[i].at;
                 let locked_amount: Balance = self.locked.get(&staker).unwrap()[i].amount;
                 let offset_day = (u128::from(self.env().block_timestamp()) - locked_time) / 86400000;
+                //calculate claimable percent when claim is required
                 let claim_percent = match offset_day {
                     0..=5 => 0.5 + offset_day * 0.1,
                     // after 5
@@ -74,18 +76,20 @@ mod Pooling {
 
                     _ => 0 
                 }
+                //check if claim amount is exceeded
                 claim_amount = claim_amount - locked_amount * claim_percent
                 if claim_amount < 0 {
                     claim_balance = amount.clone()
                 }
                 if i == (locking_length - 1) & claim_amount > 0 {
-                    ink_env::debug_println!("{}", "Hey, are you kidding me? Not enough");
+                    ink_env::debug_println!("{}", "Hey, You have Not enough amount");
                     return;
                 }
             });
             let mut amount = _amount.clone(), i = 0;
-            self.token.approve_from_to(self.env().account_id(), caller, claim_balance);
-            self.token.transfer_from(self.env().account_id(), caller, claim_balance);
+            // token transfer to staker
+            self.token.approve_from_to(self.env().account_id(), staker, claim_balance);
+            self.token.transfer_from(self.env().account_id(), staker, claim_balance);
         }
     }
 
